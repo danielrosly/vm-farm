@@ -1,0 +1,6 @@
+---
+vm:
+  memory: 4096
+  cores: 2
+  disk_size: 16384
+  ubuntu_version: '22.04'

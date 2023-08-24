@@ -1,0 +1,15 @@
+{
+    "base_path": "d:\\VirtualMachines",
+    "group_id": "/Linux2",
+    "no_of_servers": 3,
+    "names_of_servers": "ubuntuTWO",
+    "ips_of_servers_host_only": "192.168.56.210",
+    "ips_of_servers_nat": "10.30.10.20",
+    "host_only_network": "VirtualBox Host-Only Ethernet Adapter",
+    "nat_network": "VMNATCOMMON",
+    "start_type": "headless",
+    "parallel_execution_limit": 3,
+    "wait_for_ssh_minutes": 20,
+    "user_name": "ansible",
+    "user_private_key": "~/.ssh/id_rsa"
+}

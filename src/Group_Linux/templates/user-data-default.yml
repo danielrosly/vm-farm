@@ -1,0 +1,30 @@
+#cloud-config
+
+
+# Set TimeZone and Locale
+timezone: Europe/Warsaw
+locale: pl_PL.UTF-8
+
+# Hostname
+hostname: {0}
+# Ensure an entry in /etc/host is created
+manage_etc_hosts: localhost
+
+# Users. Remove default (ubuntu) + ansible user for remote control
+users:
+  - name: user
+    gecos: User Personal
+    primary_group: users
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ssh-rsa AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA user@VBOX
+  - name: ansible
+    gecos: Ansible user
+    primary_group: users
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ssh-rsa AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA user@VBOX

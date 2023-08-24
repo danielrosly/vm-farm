@@ -1,0 +1,12 @@
+version: 2
+ethernets:
+  enp0s3:
+    dhcp4: no
+    addresses: [{1}/24]
+    gateway4: {2}
+    nameservers:
+      addresses:
+        - 8.8.8.8
+  enp0s8:
+    dhcp4: no
+    addresses: [{0}/24]
