@@ -1,5 +1,9 @@
 # Get other parameters from command line parameters
 param(
+[Parameter(Mandatory=$false)]
+[ValidateSet("ForceDownload")]
+[string]$Option = "Empty",
+    
 [Parameter(Mandatory=$true)]
 [ValidateSet("Help", "Create", "Delete", "Start", "Stop", "Status", "Snapshot_create", "Snapshot_delete_last", "Snapshot_restore_last")]
 [string]$Action,
@@ -16,7 +20,7 @@ HELP:
 
 Script creates/deletes and manages group of VMs in VirtualBox.`n
  - **Available commands**: Create, Delete, Start, Stop, Status, Snapshot_create, Snapshot_restore_last, Snapshot_delete_last, Help.
- - **Executing command**: vm_farm.ps1 -Action "name-of-command" [-Param "value-of-parameter"]
+ - **Executing command**: vm_farm.ps1 -Action "name-of-command" [-Param "value-of-parameter"] [-Option "value-of-option"]
 
  Configuration:
  - of VM group and application itself: config\vm_initial_config.json
@@ -30,7 +34,10 @@ Characteristics of VMs:
  Operations:
  - Operations Create, Start and Snapshot_restore_last allow to provide 'WAIT4SSH' as -Param. This waits for all servers to expose SSH at port 22.
  - Operation Create leaves SEED.ISO in DVD drive for started machine. Operation Stop ejects eventual DVDs from VMs, unless -Param is set to 'LEAVEDVD'.
- - Operation Stop kills VMs after several attempts to stop them gracefully. If -Param is set to "SHUTDOWN", then immediate kill is executed.
+ - Operation Stop kills VMs after several attempts to stop them gracefully (with optional saving its state). 
+        If -Param is set to "SHUTDOWN", then immediate kill is executed. 
+        If -Param is set to "SAVESTATE" then savestate is executed.
+ - For operation Create option '-ForceDownload' to force download images from internet.
 
  Snapshots:
  - Snapshots with the same names are created for whole group.
@@ -47,7 +54,7 @@ Characteristics of VMs:
 # main parameters
 try{
     # Check proper values of PARAM:
-    if ( $Action -ne 'Snapshot_create'  -and @('Empty','WAIT4SSH','LEAVEDVD','SHUTDOWN') -notcontains $Param){
+    if ( $Action -ne 'Snapshot_create'  -and @('Empty','WAIT4SSH','LEAVEDVD','SHUTDOWN', 'SAVESTATE') -notcontains $Param){
         Write-Error 'Wrong value of Param. Please execute following to get help: vm_farm.ps1 -Action "Help"'
         Exit
     }
@@ -138,10 +145,15 @@ if ($Action -eq "Create") {
         }
     }
     # creating VMs
+    Write-Debug "Starting loop to create VMs."
     Unblock-File ${PSScriptRoot}\create_vbox_vm_ubuntu_cloud.ps1
     $t_ipArray = $($config.ips_of_servers_host_only).Split(".")
     $t_ipNatArray = $($config.ips_of_servers_nat).Split(".")
     $t_hosts  = @()
+    $force_download = 'false'
+    if ( $Option -eq "ForceDownload" ) {
+        $force_download = 'true'
+    }
     for ($i = 1; $i -le $($config.no_of_servers); $i++) {
         # host only
         $t_lastOctet = [int]$t_ipArray[3] + $i
@@ -152,7 +164,7 @@ if ($Action -eq "Create") {
         $t_name = "$($config.names_of_servers)$i"
         Write-Host "`n`n`nCreating VM no.$i with name=$t_name and IP(HO)=$t_newIpAddress and IP(NAT)=$t_newIpNatAddress"
         $currentDir = Get-Location
-        & $PSScriptRoot\create_vbox_vm_ubuntu_cloud.ps1 -name "$t_name" -ip_ho "$t_newIpAddress" -ip_nat "$t_newIpNatAddress" -group_id "$($config.group_id)" -base_path "$($config.base_path)" -vbox_host_only_adapter "$($config.host_only_network)" -vbox_natnet_adapter "$($config.nat_network)" -script_base "${config_dir}"
+        & $PSScriptRoot\create_vbox_vm_ubuntu_cloud.ps1 -name "$t_name" -ip_ho "$t_newIpAddress" -ip_nat "$t_newIpNatAddress" -group_id "$($config.group_id)" -base_path "$($config.base_path)" -vbox_host_only_adapter "$($config.host_only_network)" -vbox_natnet_adapter "$($config.nat_network)" -script_base "${config_dir}" -force_download "$force_download"
         Set-Location $currentDir
         $t_host_data = @{}
         $t_host_data["num"] = $i
@@ -247,15 +259,26 @@ else {
             # Stop vm with the specified name
             Write-Debug "[$vmName] Executing stopVM for $vmName with vmParam: $vmParam."
             if (isMachineRunning $vmName) {
-                if ($vmParam -eq 'Empty'){
-                    Write-Debug "[$vmName] Shutting off gracefully."
-                    & VBoxManage.exe controlvm $vmName acpipowerbutton
-                    $t_res = 'stop'
-                }
-                else {
-                    Write-Debug "[$vmName] Shutting off immediately."
-                    & VBoxManage.exe controlvm $vmName poweroff
-                    $t_res = 'poweroff'
+                switch ($vmParam) {
+                    'Empty' {
+                        Write-Debug "[$vmName] Shutting off gracefully."
+                        & VBoxManage.exe controlvm $vmName acpipowerbutton
+                        $t_res = 'stop'
+                    }
+                    'SHUTDOWN' {
+                        Write-Debug "[$vmName] Shutting off immediately."
+                        & VBoxManage.exe controlvm $vmName poweroff
+                        $t_res = 'poweroff'
+                    }
+                    'SAVESTATE' {
+                        Write-Debug "[$vmName] Saving state and turning off VM."
+                        & VBoxManage.exe controlvm $vmName savestate
+                        $t_res = 'stop'
+                    }
+                    default {
+                        Write-Error "[$vmName] Executed stopVM for $vmName with wrong vmParam: $vmParam."
+                        exit 100
+                    }
                 }
             } 
             # Attempts to check if VM is stopped - in total 3 minutes
